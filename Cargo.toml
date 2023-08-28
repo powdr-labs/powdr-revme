@@ -1,0 +1,8 @@
+[package]
+name = "powdr_revm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+revm = { git = "https://github.com/bluealloy/revm.git", rev="v22", default-features = false }
+runtime = { git = "https://github.com/powdr-org/powdr.git", branch="main" }
