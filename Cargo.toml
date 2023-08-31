@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-revm = { git = "https://github.com/bluealloy/revm.git", rev="v22", default-features = false }
-runtime = { git = "https://github.com/powdr-org/powdr.git", branch="main" }
+critical-section = "1.1.2"
+revm = { git = "https://github.com/powdr-labs/revm.git", branch = "no-std", default-features = false, features = [
+    "critical-section",
+] }
+runtime = { git = "https://github.com/powdr-labs/powdr.git", branch = "main" }
