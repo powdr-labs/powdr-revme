@@ -1,7 +1,5 @@
 #![no_std]
 
-mod critical_section_impl;
-
 use revm::{
     db::{CacheDB, EmptyDB},
     primitives::{ruint::Uint, AccountInfo, Bytecode, Bytes, TransactTo, B160, B256, U256},
