@@ -1,4 +1,2 @@
 [toolchain]
-channel = "nightly"
-targets = ["riscv32imac-unknown-none-elf"]
-profile = "minimal"
+channel = "1.72"

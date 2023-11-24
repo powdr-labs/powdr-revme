@@ -1,0 +1,13 @@
+[package]
+name = "models"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+#revm = { version = "3.5.0", default-features = false }
+revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde" ] }
+
+serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }

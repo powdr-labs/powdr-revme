@@ -1,8 +1,10 @@
-[package]
-name = "powdr_revm"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-[dependencies]
-revm = { git = "https://github.com/powdr-labs/revm.git", branch = "no-std", default-features = false }
-runtime = { git = "https://github.com/powdr-labs/powdr.git", branch = "main" }
+resolver = "2"
+
+members = ["bin", "models"]
+default-members = ["bin"]
+
+[profile.release-with-symbols]
+inherits = "release"
+debug = true
