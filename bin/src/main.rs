@@ -27,10 +27,18 @@ fn main() {
 }
 
 fn eth_test_simple() {
-    let eth_tests_path = Path::new("../ethereum-tests/simple");
+    //let eth_tests_path = Path::new("../ethereum-tests/simple");
+    let eth_tests_path = Path::new("../ethereum-tests/GeneralStateTests/VMTests");
     let all_tests = find_all_json_tests(&eth_tests_path);
     println!("{all_tests:?}");
+
+    println!("Compiling Rust...");
+    let (asm_file_path, asm_contents) =
+        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base())
+        .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
+
     for t in all_tests {
+        println!("Running test {}", t.display());
         //let suite = read_suite(&t);
 
         println!("Reading JSON test...");
@@ -44,11 +52,6 @@ fn eth_test_simple() {
 
         let output_dir = Path::new("/tmp/test");
         let force_overwrite = true;
-
-        println!("Compiling Rust...");
-        let (asm_file_path, asm_contents) =
-            compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base())
-            .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
 
         println!("Running powdr-riscv executor...");
         riscv_executor::execute::<GoldilocksField>(&asm_contents, &data);

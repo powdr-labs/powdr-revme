@@ -16,6 +16,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::vec;
 use alloc::string::String;
+use alloc::string::ToString;
 
 #[no_mangle]
 fn main() {
@@ -239,7 +240,6 @@ fn execute_test(suite: &TestSuite) -> Result<(), String> {
                 // do the deed
                 let exec_result = evm.transact_commit();
 
-                /*
                 // validate results
                 // this is in a closure so we can have a common printing routine for errors
                 let check = || {
@@ -257,62 +257,23 @@ fn execute_test(suite: &TestSuite) -> Result<(), String> {
                         // do nothing
                         (None, Ok(_)) => (),
                         // return okay, exception is expected.
-                        (Some(_), Err(_)) => return Ok(()),
+                        (Some(_), Err(e)) => {
+                            print!("ERROR: {e}");
+                            return Ok(());
+                        }
                         _ => {
-                            return Err(exec_result.clone().err().map(|e| e.to_string()));
+                            let s = exec_result.clone().err().map(|e| e.to_string()).unwrap();
+                            print!("ERROR: {s}");
+                            return Err(s);
                         }
                     }
-
-                    let logs_root =
-                        log_rlp_hash(&exec_result.as_ref().map(|r| r.logs()).unwrap_or_default());
-
-                    if logs_root != test.logs {
-                        return Err("LogsRootMismatch".to_string());
-                    }
-
-                    let db = evm.db.as_ref().unwrap();
-                    let state_root = state_merkle_trie_root(db.cache.trie_account());
-
-                    if state_root != test.hash {
-                        return Err("StateRootMismatch".to_string());
-                    }
-
                     Ok(())
                 };
 
                 // dump state and traces if test failed
                 let Err(e) = check() else { continue };
 
-                // print only once
-                static FAILED: AtomicBool = AtomicBool::new(false);
-                if FAILED.swap(true, Ordering::SeqCst) {
-                    return Err(e);
-                }
-
-                // re build to run with tracing
-                let mut cache = cache_state.clone();
-                cache.set_state_clear_flag(SpecId::enabled(
-                    env.cfg.spec_id,
-                    revm::primitives::SpecId::SPURIOUS_DRAGON,
-                ));
-                let mut state = revm::db::StateBuilder::default()
-                    .with_cached_prestate(cache)
-                    .build();
-                evm.database(&mut state);
-
-                let path = path.display();
-                print!("\nTraces:");
-                let _ = evm.inspect_commit(TracerEip3155::new(Box::new(stdout()), false, false));
-
-                print!("\nExecution result: {exec_result:#?}");
-                print!("\nExpected exception: {:?}", test.expect_exception);
-                print!("\nState before: {cache_state:#?}");
-                print!("\nState after: {:#?}", evm.db().unwrap().cache);
-                print!("\nEnvironment: {env:#?}");
-                print!("\nTest name: {name:?} (index: {index}, path: {path}) failed:\n{e}");
-
                 return Err(e);
-                */
             }
         }
     }
