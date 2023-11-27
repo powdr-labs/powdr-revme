@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 #revm = { version = "3.5.0", default-features = false }
-revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde" ] }
+#revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde" ] }
+revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
 
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
