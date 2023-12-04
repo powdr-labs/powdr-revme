@@ -34,7 +34,7 @@ fn eth_test_simple() {
 
     println!("Compiling Rust...");
     let (asm_file_path, asm_contents) =
-        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base())
+        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base(), false)
         .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
 
     for t in all_tests {
@@ -54,7 +54,7 @@ fn eth_test_simple() {
         let force_overwrite = true;
 
         println!("Running powdr-riscv executor...");
-        riscv_executor::execute::<GoldilocksField>(&asm_contents, &data);
+        riscv_executor::execute::<GoldilocksField>(&asm_contents, &data, &vec![]);
         /*
         println!("Compiling powdr-asm...");
         let _result = compile_asm_string_with_callback(
@@ -78,6 +78,7 @@ fn eth_test_simple() {
     }
 }
 
+/*
 static BYTECODE: &str = "61029a60005260206000f3";
 fn simple_test() {
     let output_dir = Path::new("/tmp/test");
@@ -85,7 +86,7 @@ fn simple_test() {
 
     println!("Compiling Rust...");
     let (asm_file_path, asm_contents) =
-        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base())
+        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base(), false)
         .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
 
     let bytes = hex::decode(BYTECODE).unwrap();
@@ -123,6 +124,7 @@ fn simple_test() {
 
     println!("Done.");
 }
+*/
 
 fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
     WalkDir::new(path)
