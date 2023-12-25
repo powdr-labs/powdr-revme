@@ -393,8 +393,8 @@ name = "evm"
 version = "0.1.0"
 dependencies = [
  "models",
+ "powdr_riscv_rt",
  "revm",
- "runtime",
  "serde",
  "serde_json",
 ]
@@ -691,6 +691,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
+name = "powdr_riscv_rt"
+version = "0.1.0"
+source = "git+https://github.com/powdr-labs/powdr?branch=continuations-data-input#ff49e76632294b3c6232a899dfeb4d1a14dc8da1"
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -922,10 +927,6 @@ name = "ruint-macro"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e666a5496a0b2186dbcd0ff6106e29e093c15591bde62c20d3842007c6978a09"
-
-[[package]]
-name = "runtime"
-version = "0.1.0"
 
 [[package]]
 name = "rustc-hash"

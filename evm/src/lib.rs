@@ -8,7 +8,8 @@ use revm::{
     },
     EVM,
 };
-use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
+//use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
+use powdr_riscv_rt::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
 
 use models::*;
 
@@ -258,12 +259,12 @@ fn execute_test(suite: &TestSuite) -> Result<(), String> {
                         (None, Ok(_)) => (),
                         // return okay, exception is expected.
                         (Some(_), Err(e)) => {
-                            print!("ERROR: {e}");
+                            //print!("ERROR: {e}");
                             return Ok(());
                         }
                         _ => {
                             let s = exec_result.clone().err().map(|e| e.to_string()).unwrap();
-                            print!("ERROR: {s}");
+                            print!("UNEXPECTED ERROR: {s}");
                             return Err(s);
                         }
                     }

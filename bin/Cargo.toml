@@ -6,10 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-compiler = { path = "../../powdr/compiler" }
-riscv = { path = "../../powdr/riscv" }
-riscv_executor = { path = "../../powdr/riscv_executor" }
-number = { path = "../../powdr/number" }
+#powdr = { path = "../../powdr2/powdr" }
+powdr = { git = "https://github.com/powdr-labs/powdr", branch = "continuations-data-input" }
+#compiler = { path = "../../powdr2/compiler" }
+#riscv = { path = "../../powdr2/riscv" }
+#riscv_executor = { path = "../../powdr2/riscv_executor" }
+#number = { path = "../../powdr2/number" }
 models = { path = "../models" }
 hex = "0.4.3"
 env_logger = "0.10.0"

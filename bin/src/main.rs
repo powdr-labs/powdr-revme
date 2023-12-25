@@ -1,8 +1,11 @@
-use riscv::{compile_rust, CoProcessors};
-use compiler::compile_asm_string_with_callback;
-use number::{GoldilocksField, FieldElement};
+use powdr::riscv::{compile_rust, CoProcessors};
+use powdr::riscv::continuations::{rust_continuations, rust_continuations_dry_run};
+use powdr::riscv_executor;
+use powdr::pipeline::Pipeline;
+use powdr::number::{GoldilocksField, FieldElement};
 
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use models::*;
 
@@ -27,8 +30,9 @@ fn main() {
 }
 
 fn eth_test_simple() {
-    //let eth_tests_path = Path::new("../ethereum-tests/simple");
-    let eth_tests_path = Path::new("../ethereum-tests/GeneralStateTests/VMTests");
+    let eth_tests_path = Path::new("../ethereum-tests/simple");
+    //let eth_tests_path = Path::new("../ethereum-tests/GeneralStateTests/VMTests");
+    //let eth_tests_path = Path::new("../ethereum-tests/long");
     let all_tests = find_all_json_tests(&eth_tests_path);
     println!("{all_tests:?}");
 
@@ -36,6 +40,11 @@ fn eth_test_simple() {
     let (asm_file_path, asm_contents) =
         compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base(), false)
         .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
+
+    let mk_pipeline = || Pipeline::<GoldilocksField>::default()
+        .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()));
+
+    //println!("{asm_contents}");
 
     for t in all_tests {
         println!("Running test {}", t.display());
@@ -53,8 +62,19 @@ fn eth_test_simple() {
         let output_dir = Path::new("/tmp/test");
         let force_overwrite = true;
 
-        println!("Running powdr-riscv executor...");
-        riscv_executor::execute::<GoldilocksField>(&asm_contents, &data, &vec![]);
+        println!("Running powdr-riscv executor in fast mode...");
+        let start = Instant::now();
+        let (trace, mem) = riscv_executor::execute::<GoldilocksField>(&asm_contents, &data, &vec![], riscv_executor::ExecMode::Fast);
+        let duration = start.elapsed();
+        println!("Fast executor took: {:?}", duration);
+        println!("Trace length: {}", trace.len);
+
+        println!("Running powdr-riscv executor in trace mode for continuations...");
+        let start = Instant::now();
+        let bootloader_inputs = rust_continuations_dry_run(mk_pipeline(), data.clone());
+        let duration = start.elapsed();
+        println!("Trace executor took: {:?}", duration);
+
         /*
         println!("Compiling powdr-asm...");
         let _result = compile_asm_string_with_callback(
