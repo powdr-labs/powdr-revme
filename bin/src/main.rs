@@ -1,8 +1,10 @@
-use powdr::riscv::{compile_rust, CoProcessors};
-use powdr::riscv::continuations::{rust_continuations, rust_continuations_dry_run};
-use powdr::riscv_executor;
+use powdr::number::{FieldElement, GoldilocksField};
 use powdr::pipeline::Pipeline;
-use powdr::number::{GoldilocksField, FieldElement};
+use powdr::riscv::continuations::{
+    bootloader::default_input, rust_continuations, rust_continuations_dry_run,
+};
+use powdr::riscv::{compile_rust, CoProcessors};
+use powdr::riscv_executor;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -13,10 +15,11 @@ use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
 use revm::{
-    db::{CacheDB, EmptyDB, CacheState},
+    db::{CacheDB, CacheState, EmptyDB},
     interpreter::CreateScheme,
     primitives::{
-        address, b256, calc_excess_blob_gas, keccak256, Env, HashMap, SpecId, ruint::Uint, AccountInfo, Address, Bytecode, Bytes, TransactTo, B256, U256,
+        address, b256, calc_excess_blob_gas, keccak256, ruint::Uint, AccountInfo, Address,
+        Bytecode, Bytes, Env, HashMap, SpecId, TransactTo, B256, U256,
     },
     EVM,
 };
@@ -37,12 +40,20 @@ fn eth_test_simple() {
     println!("{all_tests:?}");
 
     println!("Compiling Rust...");
-    let (asm_file_path, asm_contents) =
-        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base(), false)
-        .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
+    let (asm_file_path, asm_contents) = compile_rust(
+        "./evm",
+        Path::new("/tmp/test"),
+        true,
+        &CoProcessors::base().with_poseidon(),
+        true,
+    )
+    .ok_or_else(|| vec!["could not compile rust".to_string()])
+    .unwrap();
 
-    let mk_pipeline = || Pipeline::<GoldilocksField>::default()
-        .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()));
+    let mk_pipeline = || {
+        Pipeline::<GoldilocksField>::default()
+            .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
+    };
 
     //println!("{asm_contents}");
 
@@ -53,7 +64,11 @@ fn eth_test_simple() {
         println!("Reading JSON test...");
         let suite_json = std::fs::read_to_string(&t).unwrap();
         println!("Creating data callback...");
-        let mut suite_json_bytes: Vec<GoldilocksField> = suite_json.into_bytes().iter().map(|b| (*b as u32).into()).collect();
+        let mut suite_json_bytes: Vec<GoldilocksField> = suite_json
+            .into_bytes()
+            .iter()
+            .map(|b| (*b as u32).into())
+            .collect();
         suite_json_bytes.insert(0, (suite_json_bytes.len() as u32).into());
 
         let mut data: STDHashMap<GoldilocksField, Vec<GoldilocksField>> = STDHashMap::default();
@@ -64,7 +79,12 @@ fn eth_test_simple() {
 
         println!("Running powdr-riscv executor in fast mode...");
         let start = Instant::now();
-        let (trace, mem) = riscv_executor::execute::<GoldilocksField>(&asm_contents, &data, &vec![], riscv_executor::ExecMode::Fast);
+        let (trace, mem) = riscv_executor::execute::<GoldilocksField>(
+            &asm_contents,
+            &data,
+            &default_input(),
+            riscv_executor::ExecMode::Fast,
+        );
         let duration = start.elapsed();
         println!("Fast executor took: {:?}", duration);
         println!("Trace length: {}", trace.len);
@@ -130,7 +150,7 @@ fn simple_test() {
         vec![],
     ).unwrap();
     */
-    
+
     let _result = compile_asm_string_with_callback(
         asm_file_path.to_str().unwrap(),
         &asm_contents,
@@ -155,7 +175,9 @@ fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
         .collect::<Vec<PathBuf>>()
 }
 
-fn data_to_query_callback<T: FieldElement>(data: HashMap<usize, Vec<T>>) -> impl Fn(&str) -> Option<T> {
+fn data_to_query_callback<T: FieldElement>(
+    data: HashMap<usize, Vec<T>>,
+) -> impl Fn(&str) -> Option<T> {
     move |query: &str| -> Option<T> {
         let items = query.split(',').map(|s| s.trim()).collect::<Vec<_>>();
         match items[0] {
@@ -210,5 +232,3 @@ pub enum TestErrorKind {
     #[error(transparent)]
     SerdeDeserialize(#[from] serde_json::Error),
 }
-
-
