@@ -5,6 +5,7 @@ use powdr::riscv::continuations::{
 };
 use powdr::riscv::{compile_rust, CoProcessors};
 use powdr::riscv_executor;
+use powdr::executor::witgen::QueryCallback;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -96,6 +97,8 @@ fn eth_test_simple() {
         println!("Trace executor took: {:?}", duration);
 
         let generate_witness = |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
+            let data = data_to_query_callback(data.clone());
+            let mut pipeline = pipeline.add_query_callback(Box::new(data));
             pipeline.advance_to(Stage::GeneratedWitness)?;
             Ok(())
         };
@@ -133,54 +136,6 @@ fn eth_test_simple() {
     }
 }
 
-/*
-static BYTECODE: &str = "61029a60005260206000f3";
-fn simple_test() {
-    let output_dir = Path::new("/tmp/test");
-    let force_overwrite = true;
-
-    println!("Compiling Rust...");
-    let (asm_file_path, asm_contents) =
-        compile_rust("./evm", Path::new("/tmp/test"), true, &CoProcessors::base(), false)
-        .ok_or_else(|| vec!["could not compile rust".to_string()]).unwrap();
-
-    let bytes = hex::decode(BYTECODE).unwrap();
-    let bytecode_len = bytes.len();
-    let mut input: Vec<GoldilocksField> = bytes.into_iter().map(|x| (x as u64).into()).collect();
-    input.insert(0, (bytecode_len as u64).into());
-
-    let mut data: HashMap<usize, Vec<GoldilocksField>> = HashMap::default();
-    data.insert(0, input);
-
-    println!("Compiling powdr-asm...");
-
-    /*
-    let _result = compile_asm_string(
-        asm_file_path.to_str().unwrap(),
-        &asm_contents,
-        input,
-        output_dir,
-        force_overwrite,
-        None,
-        vec![],
-    ).unwrap();
-    */
-
-    let _result = compile_asm_string_with_callback(
-        asm_file_path.to_str().unwrap(),
-        &asm_contents,
-        data_to_query_callback(data),
-        None,
-        output_dir,
-        force_overwrite,
-        None,
-        vec![],
-    ).unwrap();
-
-    println!("Done.");
-}
-*/
-
 fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
     WalkDir::new(path)
         .into_iter()
@@ -191,35 +146,35 @@ fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
 }
 
 fn data_to_query_callback<T: FieldElement>(
-    data: HashMap<usize, Vec<T>>,
-) -> impl Fn(&str) -> Option<T> {
-    move |query: &str| -> Option<T> {
+    data: STDHashMap<T, Vec<T>>,
+) -> impl QueryCallback<T> {
+    move |query: &str| -> Result<Option<T>, String> {
         let items = query.split(',').map(|s| s.trim()).collect::<Vec<_>>();
         match items[0] {
             "\"input\"" => {
                 assert_eq!(items.len(), 2);
                 let index = items[1].parse::<usize>().unwrap();
                 // 0 = "input"
-                let values = &data[&0];
-                values.get(index).cloned()
+                let values = &data[&T::zero()];
+                Ok(values.get(index).cloned())
             }
             "\"data\"" => {
                 assert_eq!(items.len(), 3);
                 let index = items[1].parse::<usize>().unwrap();
                 let what = items[2].parse::<usize>().unwrap();
-                let values = &data[&what];
-                values.get(index).cloned()
+                let values = &data[&(what as u64).into()];
+                Ok(values.get(index).cloned())
             }
             "\"print_char\"" => {
                 assert_eq!(items.len(), 2);
                 print!("{}", items[1].parse::<u8>().unwrap() as char);
-                Some(0.into())
+                Ok(Some(0.into()))
             }
             "\"hint\"" => {
                 assert_eq!(items.len(), 2);
-                Some(T::from_str(items[1]))
+                Ok(Some(T::from_str(items[1])))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 }
