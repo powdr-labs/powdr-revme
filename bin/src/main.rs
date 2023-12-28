@@ -1,5 +1,5 @@
 use powdr::number::{FieldElement, GoldilocksField};
-use powdr::pipeline::Pipeline;
+use powdr::pipeline::{Pipeline, Stage};
 use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
@@ -94,6 +94,21 @@ fn eth_test_simple() {
         let bootloader_inputs = rust_continuations_dry_run(mk_pipeline(), data.clone());
         let duration = start.elapsed();
         println!("Trace executor took: {:?}", duration);
+
+        let generate_witness = |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
+            pipeline.advance_to(Stage::GeneratedWitness)?;
+            Ok(())
+        };
+
+        println!("Running witness generation...");
+        let start = Instant::now();
+        rust_continuations(
+            mk_pipeline,
+            generate_witness,
+            bootloader_inputs,
+        ).unwrap();
+        let duration = start.elapsed();
+        println!("Witness generation took: {:?}", duration);
 
         /*
         println!("Compiling powdr-asm...");
