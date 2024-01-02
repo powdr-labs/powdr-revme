@@ -1,5 +1,5 @@
 use powdr::number::{FieldElement, GoldilocksField};
-use powdr::pipeline::{Pipeline, Stage};
+use powdr::pipeline::{Pipeline, Stage, parse_query};
 use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
@@ -145,6 +145,61 @@ fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
         .collect::<Vec<PathBuf>>()
 }
 
+fn access_element<T: FieldElement>(
+    name: &str,
+    elements: &[T],
+    index_str: &str,
+) -> Result<Option<T>, String> {
+    let index = index_str
+        .parse::<usize>()
+        .map_err(|e| format!("Error parsing index: {e})"))?;
+    let value = elements.get(index).cloned();
+    if let Some(value) = value {
+        Ok(Some(value))
+    } else {
+        Err(format!(
+            "Error accessing {name}: Index {index} out of bounds {}",
+            elements.len()
+        ))
+    }
+}
+
+#[allow(clippy::print_stdout)]
+fn data_to_query_callback<T: FieldElement>(
+    data: STDHashMap<T, Vec<T>>,
+) -> impl QueryCallback<T> {
+    move |query: &str| -> Result<Option<T>, String> {
+        // TODO In the future, when match statements need to be exhaustive,
+        // This function probably gets an Option as argument and it should
+        // answer None by Ok(None).
+
+        match &parse_query(query)?[..] {
+            ["\"input\"", index] => access_element("prover inputs", &data[&T::zero()], index),
+            ["\"data\"", index, what] => {
+                let what = what
+                    .parse::<usize>()
+                    .map_err(|e| format!("Error parsing what: {e})"))?;
+
+                access_element("prover inputs", &data[&(what as u64).into()], index)
+            }
+            ["\"print_char\"", ch] => {
+                print!(
+                    "{}",
+                    ch.parse::<u8>()
+                        .map_err(|e| format!("Invalid char to print: {e}"))?
+                        as char
+                );
+                // We do not answer None because we don't want this function to be
+                // called again.
+                Ok(Some(0.into()))
+            }
+            ["\"hint\"", value] => Ok(Some(T::from_str(value))),
+            k => Err("Unsupported query".to_string()),
+        }
+    }
+}
+
+/*
 fn data_to_query_callback<T: FieldElement>(
     data: STDHashMap<T, Vec<T>>,
 ) -> impl QueryCallback<T> {
@@ -178,6 +233,7 @@ fn data_to_query_callback<T: FieldElement>(
         }
     }
 }
+*/
 
 #[derive(Debug, Error)]
 #[error("Test {name} failed: {kind}")]
