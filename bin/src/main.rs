@@ -51,12 +51,28 @@ fn eth_test_simple() {
     .ok_or_else(|| vec!["could not compile rust".to_string()])
     .unwrap();
 
+    //println!("{asm_contents}");
+
     let mk_pipeline = || {
         Pipeline::<GoldilocksField>::default()
             .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
     };
 
-    //println!("{asm_contents}");
+    println!("Creating pipeline from powdr-asm...");
+    let start = Instant::now();
+    let pipeline = mk_pipeline();
+    let duration = start.elapsed();
+    println!("Pipeline from powdr-asm took: {:?}", duration);
+
+    println!("Advancing pipeline to fixed columns...");
+    let start = Instant::now();
+    let pil_with_evaluated_fixed_cols = pipeline.pil_with_evaluated_fixed_cols().unwrap();
+    let duration = start.elapsed();
+    println!("Advancing pipeline took: {:?}", duration);
+
+    let mk_pipeline_opt = || {
+        mk_pipeline().from_pil_with_evaluated_fixed_cols(pil_with_evaluated_fixed_cols.clone())
+    };
 
     for t in all_tests {
         println!("Running test {}", t.display());
@@ -99,14 +115,18 @@ fn eth_test_simple() {
         let generate_witness = |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
             let data = data_to_query_callback(data.clone());
             let mut pipeline = pipeline.add_query_callback(Box::new(data));
+            let start = Instant::now();
+            println!("Generating witness...");
             pipeline.advance_to(Stage::GeneratedWitness)?;
+            let duration = start.elapsed();
+            println!("Generating witness took: {:?}", duration);
             Ok(())
         };
 
         println!("Running witness generation...");
         let start = Instant::now();
         rust_continuations(
-            mk_pipeline,
+            mk_pipeline_opt,
             generate_witness,
             bootloader_inputs,
         ).unwrap();
