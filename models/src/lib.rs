@@ -10,6 +10,8 @@ use alloc::vec::Vec;
 
 mod deserializer;
 use deserializer::*;
+mod serializer;
+use serializer::*;
 
 mod spec;
 pub use self::spec::SpecName;
@@ -63,7 +65,7 @@ pub struct TxPartIndices {
 pub struct AccountInfo {
     pub balance: U256,
     pub code: Bytes,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
+    #[serde(deserialize_with = "deserialize_str_as_u64", serialize_with="serialize_u64_as_str")]
     pub nonce: u64,
     pub storage: HashMap<U256, U256>,
 }
