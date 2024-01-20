@@ -22,7 +22,6 @@ use revm::{
         address, b256, calc_excess_blob_gas, keccak256, ruint::Uint, AccountInfo, Address,
         Bytecode, Bytes, Env, HashMap, SpecId, TransactTo, B256, U256,
     },
-    EVM,
 };
 
 use std::collections::HashMap as STDHashMap;
