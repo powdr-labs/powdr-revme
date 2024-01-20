@@ -1,7 +1,7 @@
 #![no_std]
 
 use revm::primitives::{Address, Bytes, HashMap, B256, U256};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 extern crate alloc;
 use alloc::collections::BTreeMap;
@@ -14,10 +14,10 @@ use deserializer::*;
 mod spec;
 pub use self::spec::SpecName;
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TestSuite(pub BTreeMap<String, TestUnit>);
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TestUnit {
     #[serde(rename = "_info")]
@@ -30,7 +30,7 @@ pub struct TestUnit {
 }
 
 /// State test indexed state result deserialization.
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Test {
     pub expect_exception: Option<String>,
@@ -50,7 +50,7 @@ pub struct Test {
     pub txbytes: Option<Bytes>,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TxPartIndices {
     pub data: usize,
@@ -58,7 +58,7 @@ pub struct TxPartIndices {
     pub value: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccountInfo {
     pub balance: U256,
@@ -68,7 +68,7 @@ pub struct AccountInfo {
     pub storage: HashMap<U256, U256>,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Env {
     pub current_coinbase: Address,
@@ -87,7 +87,7 @@ pub struct Env {
     pub parent_excess_blob_gas: Option<U256>,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TransactionParts {
     pub data: Vec<Bytes>,
@@ -110,7 +110,7 @@ pub struct TransactionParts {
     pub max_fee_per_blob_gas: Option<U256>,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccessListItem {
     pub address: Address,
