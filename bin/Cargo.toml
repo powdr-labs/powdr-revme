@@ -3,20 +3,13 @@ name = "bin"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-#powdr = { path = "../../powdr2/powdr" }
-powdr = { git = "https://github.com/powdr-labs/powdr", branch = "continuations-data-input" }
-#compiler = { path = "../../powdr2/compiler" }
-#riscv = { path = "../../powdr2/riscv" }
-#riscv_executor = { path = "../../powdr2/riscv_executor" }
-#number = { path = "../../powdr2/number" }
+powdr = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
+revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
+
 models = { path = "../models" }
 hex = "0.4.3"
-env_logger = "0.10.0"
+env_logger = "0.10.2"
 thiserror = "1.0"
-#revm = { path = "../../revm/crates/revm", features = [ "serde" ] }
-revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
 serde_json = "1.0.108"
 walkdir = "2.4.0"
