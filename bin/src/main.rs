@@ -1,12 +1,10 @@
-use powdr::number::{FieldElement, GoldilocksField};
-use powdr::pipeline::{Pipeline, Stage, parse_query};
-
+use powdr::number::GoldilocksField;
+use powdr::pipeline::{Pipeline, Stage};
 use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
 use powdr::riscv::{compile_rust, CoProcessors};
 use powdr::riscv_executor;
-use powdr::executor::witgen::QueryCallback;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -91,40 +89,21 @@ fn eth_test_simple() {
         let duration = start.elapsed();
         println!("Trace executor took: {:?}", duration);
 
-        let generate_witness = |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
-            let data = data_to_query_callback(data.clone());
-            let mut pipeline = pipeline.add_query_callback(Box::new(data));
-            let start = Instant::now();
-            println!("Generating witness...");
-            pipeline.advance_to(Stage::GeneratedWitness)?;
-            let duration = start.elapsed();
-            println!("Generating witness took: {:?}", duration);
-            Ok(())
-        };
+        let generate_witness =
+            |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
+                let start = Instant::now();
+                println!("Generating witness...");
+                pipeline.advance_to(Stage::GeneratedWitness)?;
+                let duration = start.elapsed();
+                println!("Generating witness took: {:?}", duration);
+                Ok(())
+            };
 
         println!("Running witness generation...");
         let start = Instant::now();
-        rust_continuations(
-            mk_pipeline_opt,
-            generate_witness,
-            bootloader_inputs,
-        ).unwrap();
+        rust_continuations(mk_pipeline_opt, generate_witness, bootloader_inputs).unwrap();
         let duration = start.elapsed();
         println!("Witness generation took: {:?}", duration);
-
-        /*
-        println!("Compiling powdr-asm...");
-        let _result = compile_asm_string_with_callback(
-            asm_file_path.to_str().unwrap(),
-            &asm_contents,
-            data_to_query_callback(data),
-            None,
-            output_dir,
-            force_overwrite,
-            None,
-            vec![],
-        ).unwrap();
-        */
 
         println!("Done.");
     }
