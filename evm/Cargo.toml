@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-powdr-riscv-runtime = { git = "https://github.com/powdr-labs/powdr", branch = "remove-runtime" }
+powdr-riscv-runtime = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
 
 models = { path = "../models" }
