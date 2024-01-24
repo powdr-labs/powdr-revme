@@ -3,11 +3,7 @@ name = "models"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-#revm = { version = "3.5.0", default-features = false }
-#revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde" ] }
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
 
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
