@@ -25,7 +25,6 @@ pub struct TestUnit {
     /// Test info is optional
     #[serde(default, rename = "_info")]
     pub info: Option<serde_json::Value>,
-    pub chain_id: Option<u64>,
     pub env: Env,
     pub pre: HashMap<Address, AccountInfo>,
     pub post: BTreeMap<SpecName, Vec<Test>>,
