@@ -1,10 +1,10 @@
-use powdr::powdr_number::GoldilocksField;
-use powdr::powdr_pipeline::{Pipeline, Stage};
-use powdr::powdr_riscv::continuations::{
+use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
-use powdr::powdr_riscv::{compile_rust, CoProcessors};
-use powdr::powdr_riscv_executor;
+use powdr::riscv::{compile_rust, CoProcessors};
+use powdr::riscv_executor;
+use powdr::GoldilocksField;
+use powdr::{pipeline::Stage, Pipeline};
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -90,11 +90,11 @@ fn run_all_tests(options: &Options) {
         if options.fast_tracer {
             log::info!("Running powdr-riscv executor in fast mode...");
             let start = Instant::now();
-            let (trace, _mem) = powdr_riscv_executor::execute::<GoldilocksField>(
+            let (trace, _mem) = riscv_executor::execute::<GoldilocksField>(
                 &asm_contents,
                 mk_pipeline_with_data().data_callback().unwrap(),
                 &default_input(&[]),
-                powdr_riscv_executor::ExecMode::Fast,
+                riscv_executor::ExecMode::Fast,
             );
             let duration = start.elapsed();
             log::info!("Fast executor took: {:?}", duration);
