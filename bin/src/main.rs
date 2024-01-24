@@ -1,33 +1,49 @@
-use powdr::number::GoldilocksField;
-use powdr::pipeline::{Pipeline, Stage};
-use powdr::riscv::continuations::{
+use powdr::powdr_number::GoldilocksField;
+use powdr::powdr_pipeline::{Pipeline, Stage};
+use powdr::powdr_riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
-use powdr::riscv::{compile_rust, CoProcessors};
-use powdr::riscv_executor;
+use powdr::powdr_riscv::{compile_rust, CoProcessors};
+use powdr::powdr_riscv_executor;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
-use revm::primitives::B256;
+use clap::Parser;
 
 fn main() {
+    let mut options = Options::parse();
+    if options.proofs {
+        options.witgen = true;
+    }
+
     env_logger::init();
 
-    eth_test_simple();
+    run_all_tests(&options)
 }
 
-fn eth_test_simple() {
-    let eth_tests_path = Path::new("../ethereum-tests/simple");
-    //let eth_tests_path = Path::new("../ethereum-tests/GeneralStateTests/VMTests");
-    //let eth_tests_path = Path::new("../ethereum-tests/long");
-    let all_tests = find_all_json_tests(eth_tests_path);
-    println!("{all_tests:?}");
+#[derive(Parser)]
+struct Options {
+    #[clap(short, long, required = true)]
+    path: PathBuf,
 
-    println!("Compiling Rust...");
+    #[clap(short, long)]
+    fast_tracer: bool,
+
+    #[clap(short, long)]
+    witgen: bool,
+
+    #[clap(short, long)]
+    proofs: bool,
+}
+
+fn run_all_tests(options: &Options) {
+    let all_tests = find_all_json_tests(&options.path);
+
+    log::info!("{}", format!("All tests: {:?}", all_tests));
+    log::info!("Compiling powdr-revme...");
     let (asm_file_path, asm_contents) = compile_rust(
         "./evm",
         Path::new("/tmp/test"),
@@ -38,7 +54,7 @@ fn eth_test_simple() {
     .ok_or_else(|| vec!["could not compile rust".to_string()])
     .unwrap();
 
-    //println!("{asm_contents}");
+    log::debug!("powdr-asm code:\n{asm_contents}");
 
     let mk_pipeline = || {
         Pipeline::<GoldilocksField>::default()
@@ -46,22 +62,22 @@ fn eth_test_simple() {
             .with_prover_inputs(vec![])
     };
 
-    println!("Creating pipeline from powdr-asm...");
+    log::info!("Creating pipeline from powdr-asm...");
     let start = Instant::now();
     let pipeline = mk_pipeline();
     let duration = start.elapsed();
-    println!("Pipeline from powdr-asm took: {:?}", duration);
+    log::info!("Pipeline from powdr-asm took: {:?}", duration);
 
-    println!("Advancing pipeline to fixed columns...");
+    log::info!("Advancing pipeline to fixed columns...");
     let start = Instant::now();
     let pil_with_evaluated_fixed_cols = pipeline.pil_with_evaluated_fixed_cols().unwrap();
     let duration = start.elapsed();
-    println!("Advancing pipeline took: {:?}", duration);
+    log::info!("Advancing pipeline took: {:?}", duration);
 
     for t in all_tests {
-        println!("Running test {}", t.display());
+        log::info!("Running test {}", t.display());
 
-        println!("Reading JSON test...");
+        log::info!("Reading JSON test...");
         let suite_json = std::fs::read_to_string(&t).unwrap();
 
         let mk_pipeline_with_data = || mk_pipeline().add_data(42, &suite_json);
@@ -71,41 +87,49 @@ fn eth_test_simple() {
                 .from_pil_with_evaluated_fixed_cols(pil_with_evaluated_fixed_cols.clone())
         };
 
-        println!("Running powdr-riscv executor in fast mode...");
-        let start = Instant::now();
-        let (trace, _mem) = riscv_executor::execute::<GoldilocksField>(
-            &asm_contents,
-            mk_pipeline_with_data().data_callback().unwrap(),
-            &default_input(&[]),
-            riscv_executor::ExecMode::Fast,
-        );
-        let duration = start.elapsed();
-        println!("Fast executor took: {:?}", duration);
-        println!("Trace length: {}", trace.len);
+        if options.fast_tracer {
+            log::info!("Running powdr-riscv executor in fast mode...");
+            let start = Instant::now();
+            let (trace, _mem) = powdr_riscv_executor::execute::<GoldilocksField>(
+                &asm_contents,
+                mk_pipeline_with_data().data_callback().unwrap(),
+                &default_input(&[]),
+                powdr_riscv_executor::ExecMode::Fast,
+            );
+            let duration = start.elapsed();
+            log::info!("Fast executor took: {:?}", duration);
+            log::info!("Trace length: {}", trace.len);
+        }
 
-        println!("Running powdr-riscv executor in trace mode for continuations...");
-        let start = Instant::now();
-        let bootloader_inputs = rust_continuations_dry_run(mk_pipeline_with_data());
-        let duration = start.elapsed();
-        println!("Trace executor took: {:?}", duration);
+        if options.witgen {
+            log::info!("Running powdr-riscv executor in trace mode for continuations...");
+            let start = Instant::now();
+            let bootloader_inputs = rust_continuations_dry_run(mk_pipeline_with_data());
+            let duration = start.elapsed();
+            log::info!("Trace executor took: {:?}", duration);
 
-        let generate_witness =
-            |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
-                let start = Instant::now();
-                println!("Generating witness...");
-                pipeline.advance_to(Stage::GeneratedWitness)?;
-                let duration = start.elapsed();
-                println!("Generating witness took: {:?}", duration);
-                Ok(())
-            };
+            let generate_witness =
+                |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
+                    let start = Instant::now();
+                    println!("Generating witness...");
+                    pipeline.advance_to(Stage::GeneratedWitness)?;
+                    let duration = start.elapsed();
+                    println!("Generating witness took: {:?}", duration);
+                    Ok(())
+                };
 
-        println!("Running witness generation...");
-        let start = Instant::now();
-        rust_continuations(mk_pipeline_opt, generate_witness, bootloader_inputs).unwrap();
-        let duration = start.elapsed();
-        println!("Witness generation took: {:?}", duration);
+            log::info!("Running witness generation...");
+            let start = Instant::now();
+            rust_continuations(mk_pipeline_opt, generate_witness, bootloader_inputs).unwrap();
+            let duration = start.elapsed();
+            log::info!("Witness generation took: {:?}", duration);
+        }
 
-        println!("Done.");
+        if options.proofs {
+            log::info!("Proofs requested but not implemented yet in this test.");
+        }
+
+        log::info!("Done.");
     }
 }
 
@@ -116,28 +140,4 @@ fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
         .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
         .map(DirEntry::into_path)
         .collect::<Vec<PathBuf>>()
-}
-
-#[derive(Debug, Error)]
-#[error("Test {name} failed: {kind}")]
-pub struct TestError {
-    pub name: String,
-    pub kind: TestErrorKind,
-}
-
-#[derive(Debug, Error)]
-pub enum TestErrorKind {
-    #[error("logs root mismatch: expected {expected:?}, got {got:?}")]
-    LogsRootMismatch { got: B256, expected: B256 },
-    #[error("state root mismatch: expected {expected:?}, got {got:?}")]
-    StateRootMismatch { got: B256, expected: B256 },
-    #[error("Unknown private key: {0:?}")]
-    UnknownPrivateKey(B256),
-    #[error("Unexpected exception: {got_exception:?} but test expects:{expected_exception:?}")]
-    UnexpectedException {
-        expected_exception: Option<String>,
-        got_exception: Option<String>,
-    },
-    #[error(transparent)]
-    SerdeDeserialize(#[from] serde_json::Error),
 }

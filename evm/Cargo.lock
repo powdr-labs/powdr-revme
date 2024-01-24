@@ -383,7 +383,7 @@ dependencies = [
  "ahash",
  "k256",
  "models",
- "powdr_riscv_rt",
+ "powdr-riscv-runtime",
  "revm",
  "serde",
  "serde_json",
@@ -687,9 +687,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
-name = "powdr_riscv_rt"
+name = "powdr-riscv-runtime"
 version = "0.1.0"
-source = "git+https://github.com/powdr-labs/powdr?branch=main#deb842a4125e697d09e695b07ec4877807f40de1"
+source = "git+https://github.com/powdr-labs/powdr?branch=remove-runtime#5cfc240aa7e0be9c4acd2c2099ebe592ee410262"
 dependencies = [
  "serde",
  "serde_cbor",
