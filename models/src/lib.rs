@@ -10,20 +10,21 @@ use alloc::vec::Vec;
 
 mod deserializer;
 use deserializer::*;
+mod serializer;
+use serializer::*;
 
 mod spec;
 pub use self::spec::SpecName;
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TestSuite(pub BTreeMap<String, TestUnit>);
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TestUnit {
     /// Test info is optional
     #[serde(default, rename = "_info")]
     pub info: Option<serde_json::Value>,
-
     pub env: Env,
     pub pre: HashMap<Address, AccountInfo>,
     pub post: BTreeMap<SpecName, Vec<Test>>,
@@ -33,7 +34,7 @@ pub struct TestUnit {
 }
 
 /// State test indexed state result deserialization.
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Test {
     pub expect_exception: Option<String>,
@@ -53,7 +54,7 @@ pub struct Test {
     pub txbytes: Option<Bytes>,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TxPartIndices {
     pub data: usize,
@@ -61,17 +62,20 @@ pub struct TxPartIndices {
     pub value: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccountInfo {
     pub balance: U256,
     pub code: Bytes,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
+    #[serde(
+        deserialize_with = "deserialize_str_as_u64",
+        serialize_with = "serialize_u64_as_str"
+    )]
     pub nonce: u64,
     pub storage: HashMap<U256, U256>,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Env {
     pub current_coinbase: Address,
@@ -115,7 +119,7 @@ pub struct TransactionParts {
     pub max_fee_per_blob_gas: Option<U256>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccessListItem {
     pub address: Address,
