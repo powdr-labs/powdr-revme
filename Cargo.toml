@@ -4,7 +4,3 @@ resolver = "2"
 
 members = ["bin", "models"]
 default-members = ["bin"]
-
-[profile.release-with-symbols]
-inherits = "release"
-debug = true
