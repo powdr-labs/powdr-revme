@@ -56,21 +56,18 @@ fn run_all_tests(options: &Options) {
 
     log::debug!("powdr-asm code:\n{asm_contents}");
 
-    let mk_pipeline = || {
-        Pipeline::<GoldilocksField>::default()
-            .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
-            .with_prover_inputs(vec![])
-    };
-
-    log::info!("Creating pipeline from powdr-asm...");
-    let start = Instant::now();
-    let pipeline = mk_pipeline();
-    let duration = start.elapsed();
-    log::info!("Pipeline from powdr-asm took: {:?}", duration);
+    // Create a pipeline from the asm program
+    let pipeline_with_program = Pipeline::<GoldilocksField>::default()
+        .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
+        .with_prover_inputs(Default::default());
 
     log::info!("Advancing pipeline to fixed columns...");
     let start = Instant::now();
-    let pil_with_evaluated_fixed_cols = pipeline.pil_with_evaluated_fixed_cols().unwrap();
+    // Advance pipeline to constant columns which only depend on the program
+    let mut pipeline_with_fixed_cols = pipeline_with_program.clone();
+    pipeline_with_fixed_cols
+        .advance_to(Stage::PilWithEvaluatedFixedCols)
+        .unwrap();
     let duration = start.elapsed();
     log::info!("Advancing pipeline took: {:?}", duration);
 
@@ -80,19 +77,21 @@ fn run_all_tests(options: &Options) {
         log::info!("Reading JSON test...");
         let suite_json = std::fs::read_to_string(&t).unwrap();
 
-        let mk_pipeline_with_data = || mk_pipeline().add_data(42, &suite_json);
-
-        let mk_pipeline_opt = || {
-            mk_pipeline_with_data()
-                .from_pil_with_evaluated_fixed_cols(pil_with_evaluated_fixed_cols.clone())
-        };
+        // Add the test data to both pipelines we're keeping
+        // TODO this is kinda odd, we should be able to keep only one pipeline
+        let pipeline_with_program_and_data =
+            pipeline_with_program.clone().add_data(42, &suite_json);
+        let pipeline_with_fixed_cols_and_data =
+            pipeline_with_fixed_cols.clone().add_data(42, &suite_json);
 
         if options.fast_tracer {
             log::info!("Running powdr-riscv executor in fast mode...");
             let start = Instant::now();
             let (trace, _mem) = riscv_executor::execute::<GoldilocksField>(
                 &asm_contents,
-                mk_pipeline_with_data().data_callback().unwrap(),
+                // Here it doesn't really matter which pipeline we use,
+                // since we're only interested in the data
+                pipeline_with_program_and_data.data_callback().unwrap(),
                 &default_input(&[]),
                 riscv_executor::ExecMode::Fast,
             );
@@ -104,7 +103,10 @@ fn run_all_tests(options: &Options) {
         if options.witgen {
             log::info!("Running powdr-riscv executor in trace mode for continuations...");
             let start = Instant::now();
-            let bootloader_inputs = rust_continuations_dry_run(mk_pipeline_with_data());
+            // TODO: rust_continuations_dry_run requires a clean pipeline for now
+            // without fixed cols
+            let bootloader_inputs =
+                rust_continuations_dry_run(&mut pipeline_with_program_and_data.clone());
             let duration = start.elapsed();
             log::info!("Trace executor took: {:?}", duration);
 
@@ -120,7 +122,12 @@ fn run_all_tests(options: &Options) {
 
             log::info!("Running witness generation...");
             let start = Instant::now();
-            rust_continuations(mk_pipeline_opt, generate_witness, bootloader_inputs).unwrap();
+            rust_continuations(
+                pipeline_with_fixed_cols_and_data,
+                generate_witness,
+                bootloader_inputs,
+            )
+            .unwrap();
             let duration = start.elapsed();
             log::info!("Witness generation took: {:?}", duration);
         }
