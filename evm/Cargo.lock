@@ -688,8 +688,7 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "powdr-riscv-runtime"
-version = "0.1.0"
-source = "git+https://github.com/powdr-labs/powdr?branch=main#13df6b793e37c4d7fad412067f1403fbd4672e7e"
+version = "0.1.0-alpha.1"
 dependencies = [
  "serde",
  "serde_cbor",

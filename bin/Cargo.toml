@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-powdr = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
+#powdr = { git = "https://github.com/powdr-labs/powdr", branch = "pass-witness-values" }
+powdr = { "path" = "../../powdr2/powdr" }
 
 env_logger = "0.10.2"
 walkdir = "2.4.0"

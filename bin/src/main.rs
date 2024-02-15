@@ -1,3 +1,4 @@
+use powdr::number::{read_polys_csv_file, CsvRenderMode};
 use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
@@ -6,9 +7,11 @@ use powdr::riscv_executor;
 use powdr::GoldilocksField;
 use powdr::{pipeline::Stage, Pipeline};
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use std::cell::RefCell;
 use walkdir::{DirEntry, WalkDir};
 
 use clap::Parser;
@@ -28,6 +31,9 @@ fn main() {
 struct Options {
     #[clap(short, long, required = true)]
     path: PathBuf,
+
+    #[clap(short, long)]
+    data: Option<PathBuf>,
 
     #[clap(short, long)]
     fast_tracer: bool,
@@ -54,11 +60,14 @@ fn run_all_tests(options: &Options) {
     .ok_or_else(|| vec!["could not compile rust".to_string()])
     .unwrap();
 
-    log::debug!("powdr-asm code:\n{asm_contents}");
+    //log::debug!("powdr-asm code:\n{asm_contents}");
 
     // Create a pipeline from the asm program
     let pipeline_with_program = Pipeline::<GoldilocksField>::default()
         .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
+        //.from_maybe_pil_object(format!("{}/evm_opt.pilo", options.data.clone()))
+        .with_output(options.data.clone().unwrap(), true)
+        .with_witness_csv_settings(true, CsvRenderMode::Hex)
         .with_prover_inputs(Default::default());
 
     log::info!("Advancing pipeline to fixed columns...");
@@ -110,13 +119,31 @@ fn run_all_tests(options: &Options) {
             let duration = start.elapsed();
             log::info!("Trace executor took: {:?}", duration);
 
+            let chunk = RefCell::new(0);
             let generate_witness =
-                |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
+                move |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
+                    if let Some(ref csv_path) = options.data {
+                        let csv_path = format!(
+                            "{}/evm_chunk_{}_columns.csv",
+                            csv_path.display(),
+                            chunk.borrow()
+                        );
+                        let csv_file = fs::File::open(csv_path.clone()).unwrap();
+                        let witness_values = read_polys_csv_file::<GoldilocksField>(csv_file);
+                        println!(
+                            "Using external witness from {} with {} columns",
+                            csv_path.clone(),
+                            witness_values.len()
+                        );
+                        pipeline = pipeline.add_external_witness_values(witness_values);
+                    }
+
                     let start = Instant::now();
                     println!("Generating witness...");
                     pipeline.advance_to(Stage::GeneratedWitness)?;
                     let duration = start.elapsed();
                     println!("Generating witness took: {:?}", duration);
+                    *chunk.borrow_mut() += 1;
                     Ok(())
                 };
 
