@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-powdr = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
+powdr = { git = "https://github.com/powdr-labs/powdr", rev = "0a34dd4913e613e8d18f9c73d248aa4523a9e146" }
 
 env_logger = "0.10.2"
 walkdir = "2.4.0"
