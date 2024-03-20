@@ -2,7 +2,6 @@ use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
 use powdr::riscv::{compile_rust, CoProcessors};
-use powdr::riscv_executor;
 use powdr::GoldilocksField;
 use powdr::Pipeline;
 
@@ -47,11 +46,11 @@ fn run_all_tests(options: &Options) {
 
     log::info!("{}", format!("All tests: {:?}", all_tests));
     log::info!("Compiling powdr-revme...");
-    let (asm_file_path, asm_contents) = compile_rust(
+    let (asm_file_path, asm_contents) = compile_rust::<GoldilocksField>(
         "./evm",
         &options.output,
         true,
-        &CoProcessors::base().with_poseidon(),
+        &CoProcessors::base::<GoldilocksField>().with_poseidon(),
         true,
     )
     .ok_or_else(|| vec!["could not compile rust".to_string()])
@@ -63,27 +62,7 @@ fn run_all_tests(options: &Options) {
     let mut pipeline = Pipeline::<GoldilocksField>::default()
         .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
         .with_output(options.output.clone(), true)
-        .with_prover_inputs(Default::default());
-
-    /*
-    log::info!("Compling asm -> pil...");
-    let start = Instant::now();
-    pipeline.compute_analyzed_pil().unwrap();
-    let duration = start.elapsed();
-    log::info!("Computing analyzed pil took: {:?}", duration);
-
-    log::info!("Optimizing pil...");
-    let start = Instant::now();
-    pipeline.compute_optimized_pil().unwrap();
-    let duration = start.elapsed();
-    log::info!("Optimizing pil took: {:?}", duration);
-    */
-
-    log::info!("Computing fixed columns...");
-    let start = Instant::now();
-    pipeline.compute_fixed_cols().unwrap();
-    let duration = start.elapsed();
-    log::info!("Computing fixed columns took: {:?}", duration);
+        .with_prover_inputs(vec![42.into()]);
 
     for t in all_tests {
         log::info!("Running test {}", t.display());
@@ -96,12 +75,18 @@ fn run_all_tests(options: &Options) {
         if options.fast_tracer {
             log::info!("Running powdr-riscv executor in fast mode...");
             let start = Instant::now();
-            let (trace, _mem) = riscv_executor::execute::<GoldilocksField>(
-                &asm_contents,
+
+            let program = pipeline.compute_analyzed_asm().unwrap().clone();
+            let initial_memory = powdr::riscv::continuations::load_initial_memory(&program);
+            let (trace, _mem) = powdr::riscv_executor::execute_ast::<GoldilocksField>(
+                &program,
+                initial_memory,
                 pipeline_with_data.data_callback().unwrap(),
                 &default_input(&[]),
-                riscv_executor::ExecMode::Fast,
+                usize::MAX,
+                powdr::riscv_executor::ExecMode::Fast,
             );
+
             let duration = start.elapsed();
             log::info!("Fast executor took: {:?}", duration);
             log::info!("Trace length: {}", trace.len);
