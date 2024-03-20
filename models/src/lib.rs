@@ -84,7 +84,7 @@ pub struct Env {
     pub current_number: U256,
     pub current_timestamp: U256,
     pub current_base_fee: Option<U256>,
-    pub previous_hash: B256,
+    pub previous_hash: Option<B256>,
 
     pub current_random: Option<B256>,
     pub current_beacon_root: Option<B256>,
@@ -92,6 +92,7 @@ pub struct Env {
 
     pub parent_blob_gas_used: Option<U256>,
     pub parent_excess_blob_gas: Option<U256>,
+    pub current_excess_blob_gas: Option<U256>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

@@ -2,9 +2,8 @@ use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
 use powdr::riscv::{compile_rust, CoProcessors};
-use powdr::riscv_executor;
 use powdr::GoldilocksField;
-use powdr::{pipeline::Stage, Pipeline};
+use powdr::Pipeline;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -29,6 +28,9 @@ struct Options {
     #[clap(short, long, required = true)]
     path: PathBuf,
 
+    #[clap(short, long, default_value = ".")]
+    output: PathBuf,
+
     #[clap(short, long)]
     fast_tracer: bool,
 
@@ -44,11 +46,11 @@ fn run_all_tests(options: &Options) {
 
     log::info!("{}", format!("All tests: {:?}", all_tests));
     log::info!("Compiling powdr-revme...");
-    let (asm_file_path, asm_contents) = compile_rust(
+    let (asm_file_path, asm_contents) = compile_rust::<GoldilocksField>(
         "./evm",
-        Path::new("/tmp/test"),
+        &options.output,
         true,
-        &CoProcessors::base().with_poseidon(),
+        &CoProcessors::base::<GoldilocksField>().with_poseidon(),
         true,
     )
     .ok_or_else(|| vec!["could not compile rust".to_string()])
@@ -57,19 +59,10 @@ fn run_all_tests(options: &Options) {
     log::debug!("powdr-asm code:\n{asm_contents}");
 
     // Create a pipeline from the asm program
-    let pipeline_with_program = Pipeline::<GoldilocksField>::default()
+    let mut pipeline = Pipeline::<GoldilocksField>::default()
         .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
-        .with_prover_inputs(Default::default());
-
-    log::info!("Advancing pipeline to fixed columns...");
-    let start = Instant::now();
-    // Advance pipeline to constant columns which only depend on the program
-    let mut pipeline_with_fixed_cols = pipeline_with_program.clone();
-    pipeline_with_fixed_cols
-        .advance_to(Stage::PilWithEvaluatedFixedCols)
-        .unwrap();
-    let duration = start.elapsed();
-    log::info!("Advancing pipeline took: {:?}", duration);
+        .with_output(options.output.clone(), true)
+        .with_prover_inputs(vec![42.into()]);
 
     for t in all_tests {
         log::info!("Running test {}", t.display());
@@ -77,24 +70,23 @@ fn run_all_tests(options: &Options) {
         log::info!("Reading JSON test...");
         let suite_json = std::fs::read_to_string(&t).unwrap();
 
-        // Add the test data to both pipelines we're keeping
-        // TODO this is kinda odd, we should be able to keep only one pipeline
-        let pipeline_with_program_and_data =
-            pipeline_with_program.clone().add_data(42, &suite_json);
-        let pipeline_with_fixed_cols_and_data =
-            pipeline_with_fixed_cols.clone().add_data(42, &suite_json);
+        let pipeline_with_data = pipeline.clone().add_data(42, &suite_json);
 
         if options.fast_tracer {
             log::info!("Running powdr-riscv executor in fast mode...");
             let start = Instant::now();
-            let (trace, _mem) = riscv_executor::execute::<GoldilocksField>(
-                &asm_contents,
-                // Here it doesn't really matter which pipeline we use,
-                // since we're only interested in the data
-                pipeline_with_program_and_data.data_callback().unwrap(),
+
+            let program = pipeline.compute_analyzed_asm().unwrap().clone();
+            let initial_memory = powdr::riscv::continuations::load_initial_memory(&program);
+            let (trace, _mem) = powdr::riscv_executor::execute_ast::<GoldilocksField>(
+                &program,
+                initial_memory,
+                pipeline_with_data.data_callback().unwrap(),
                 &default_input(&[]),
-                riscv_executor::ExecMode::Fast,
+                usize::MAX,
+                powdr::riscv_executor::ExecMode::Fast,
             );
+
             let duration = start.elapsed();
             log::info!("Fast executor took: {:?}", duration);
             log::info!("Trace length: {}", trace.len);
@@ -103,10 +95,9 @@ fn run_all_tests(options: &Options) {
         if options.witgen {
             log::info!("Running powdr-riscv executor in trace mode for continuations...");
             let start = Instant::now();
-            // TODO: rust_continuations_dry_run requires a clean pipeline for now
-            // without fixed cols
-            let bootloader_inputs =
-                rust_continuations_dry_run(&mut pipeline_with_program_and_data.clone());
+
+            let bootloader_inputs = rust_continuations_dry_run(&mut pipeline_with_data.clone());
+
             let duration = start.elapsed();
             log::info!("Trace executor took: {:?}", duration);
 
@@ -114,7 +105,7 @@ fn run_all_tests(options: &Options) {
                 |mut pipeline: Pipeline<GoldilocksField>| -> Result<(), Vec<String>> {
                     let start = Instant::now();
                     println!("Generating witness...");
-                    pipeline.advance_to(Stage::GeneratedWitness)?;
+                    pipeline.compute_witness()?;
                     let duration = start.elapsed();
                     println!("Generating witness took: {:?}", duration);
                     Ok(())
@@ -122,12 +113,7 @@ fn run_all_tests(options: &Options) {
 
             log::info!("Running witness generation...");
             let start = Instant::now();
-            rust_continuations(
-                pipeline_with_fixed_cols_and_data,
-                generate_witness,
-                bootloader_inputs,
-            )
-            .unwrap();
+            rust_continuations(pipeline_with_data, generate_witness, bootloader_inputs).unwrap();
             let duration = start.elapsed();
             log::info!("Witness generation took: {:?}", duration);
         }
