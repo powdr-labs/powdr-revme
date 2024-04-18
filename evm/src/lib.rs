@@ -7,7 +7,7 @@ use revm::{
     Evm,
 };
 
-use powdr_riscv_runtime::{coprocessors::get_data_serde, print};
+use powdr_riscv_runtime::{input::get_data_serde, print};
 
 use models::*;
 
