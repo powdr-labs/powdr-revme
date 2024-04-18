@@ -11,14 +11,15 @@ how to use powdr as a library.
 # Usage
 
 ```help
-Usage: bin [OPTIONS] --path <PATH>
+Usage: bin [OPTIONS] --test <TEST>
 
 Options:
-  -p, --path <PATH>  
-  -f, --fast-tracer  
-  -w, --witgen       
-  -p, --proofs       
-  -h, --help         Print help
+  -t, --test <TEST>
+  -o, --output <OUTPUT>  [default: .]
+  -f, --fast-tracer
+  -w, --witgen
+  -p, --proofs
+  -h, --help             Print help
 ```
 
 Checkout the [Ethereum tests](https://github.com/ethereum/tests).  The only
@@ -31,7 +32,7 @@ proofs.  Proofs have not been added to this repo yet.
 Example running only the fast tracer:
 
 ```bash
-cargo run -r -- --path tests/accessListExample.json --fast
+cargo run -r -- -t tests/accessListExample.json -f
 ```
 
 # Crates

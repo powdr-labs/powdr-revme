@@ -1,7 +1,7 @@
 use powdr::riscv::continuations::{
     bootloader::default_input, rust_continuations, rust_continuations_dry_run,
 };
-use powdr::riscv::{compile_rust, CoProcessors};
+use powdr::riscv::{compile_rust, Runtime};
 use powdr::GoldilocksField;
 use powdr::Pipeline;
 
@@ -26,7 +26,7 @@ fn main() {
 #[derive(Parser)]
 struct Options {
     #[clap(short, long, required = true)]
-    path: PathBuf,
+    test: PathBuf,
 
     #[clap(short, long, default_value = ".")]
     output: PathBuf,
@@ -42,7 +42,7 @@ struct Options {
 }
 
 fn run_all_tests(options: &Options) {
-    let all_tests = find_all_json_tests(&options.path);
+    let all_tests = find_all_json_tests(&options.test);
 
     log::info!("{}", format!("All tests: {:?}", all_tests));
     log::info!("Compiling powdr-revme...");
@@ -50,7 +50,7 @@ fn run_all_tests(options: &Options) {
         "./evm",
         &options.output,
         true,
-        &CoProcessors::base::<GoldilocksField>().with_poseidon(),
+        &Runtime::base().with_poseidon(),
         true,
     )
     .ok_or_else(|| vec!["could not compile rust".to_string()])
@@ -60,9 +60,12 @@ fn run_all_tests(options: &Options) {
 
     // Create a pipeline from the asm program
     let mut pipeline = Pipeline::<GoldilocksField>::default()
-        .from_asm_string(asm_contents.clone(), Some(asm_file_path.clone()))
+        .from_asm_string(asm_contents, Some(asm_file_path.clone()))
         .with_output(options.output.clone(), true)
-        .with_prover_inputs(vec![42.into()]);
+        .with_prover_inputs(vec![42.into()])
+        .with_backend(powdr::backend::BackendType::EStarkDump);
+
+    assert!(pipeline.compute_fixed_cols().is_ok());
 
     for t in all_tests {
         log::info!("Running test {}", t.display());
@@ -92,7 +95,7 @@ fn run_all_tests(options: &Options) {
             log::info!("Trace length: {}", trace.len);
         }
 
-        if options.witgen {
+        if options.witgen || options.proofs {
             log::info!("Running powdr-riscv executor in trace mode for continuations...");
             let start = Instant::now();
 
@@ -108,18 +111,33 @@ fn run_all_tests(options: &Options) {
                     pipeline.compute_witness()?;
                     let duration = start.elapsed();
                     println!("Generating witness took: {:?}", duration);
+
+                    if options.proofs {
+                        log::info!("Generating proof...");
+                        let start = Instant::now();
+
+                        pipeline.compute_proof().unwrap();
+
+                        let duration = start.elapsed();
+                        log::info!("Proof generation took: {:?}", duration);
+                    }
+
                     Ok(())
                 };
 
-            log::info!("Running witness generation...");
+            log::info!("Running witness and proof generation for all chunks...");
             let start = Instant::now();
-            rust_continuations(pipeline_with_data, generate_witness, bootloader_inputs).unwrap();
+            rust_continuations(
+                pipeline_with_data.clone(),
+                generate_witness,
+                bootloader_inputs,
+            )
+            .unwrap();
             let duration = start.elapsed();
-            log::info!("Witness generation took: {:?}", duration);
-        }
-
-        if options.proofs {
-            log::info!("Proofs requested but not implemented yet in this test.");
+            log::info!(
+                "Witness and proof generation for all chunks took: {:?}",
+                duration
+            );
         }
 
         log::info!("Done.");
