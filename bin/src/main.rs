@@ -63,7 +63,7 @@ fn run_all_tests(options: &Options) {
         .from_asm_string(asm_contents, Some(asm_file_path.clone()))
         .with_output(options.output.clone(), true)
         .with_prover_inputs(vec![42.into()])
-        .with_backend(powdr::backend::BackendType::EStarkDump);
+        .with_backend(powdr::backend::BackendType::EStarkDump, None);
 
     assert!(pipeline.compute_fixed_cols().is_ok());
 
@@ -88,6 +88,7 @@ fn run_all_tests(options: &Options) {
                 &default_input(&[]),
                 usize::MAX,
                 powdr::riscv_executor::ExecMode::Fast,
+                None,
             );
 
             let duration = start.elapsed();
@@ -99,7 +100,8 @@ fn run_all_tests(options: &Options) {
             log::info!("Running powdr-riscv executor in trace mode for continuations...");
             let start = Instant::now();
 
-            let bootloader_inputs = rust_continuations_dry_run(&mut pipeline_with_data.clone());
+            let bootloader_inputs =
+                rust_continuations_dry_run(&mut pipeline_with_data.clone(), None);
 
             let duration = start.elapsed();
             log::info!("Trace executor took: {:?}", duration);
